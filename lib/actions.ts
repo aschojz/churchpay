@@ -5,12 +5,14 @@ import { getEnvForDomain } from "@/lib/domainenv";
 import { getPayPalClient } from "@/lib/paypal";
 import { PaymentInfo } from "@/lib/types";
 import {
-  extractEuroAmount,
   getAmountField,
   getChurchToolsClient,
+  getGroupMemberFields,
   getMember,
   getPaidField,
+  resolveMemberFieldValues,
   setPaid,
+  sumEuroAmounts,
 } from "./churchtools";
 
 export async function getPaymentInfo(
@@ -24,7 +26,10 @@ export async function getPaymentInfo(
     return { type: "error", message: "Dieser Link ist leider nicht gültig." };
   }
 
-  const member = await getMember(churchToolsClient, groupId, personId);
+  const [member, groupMemberFields] = await Promise.all([
+    getMember(churchToolsClient, groupId, personId),
+    getGroupMemberFields(churchToolsClient, groupId),
+  ]);
   if (!member) {
     return {
       type: "error",
@@ -47,8 +52,9 @@ export async function getPaymentInfo(
     };
   }
 
-  const amount = extractEuroAmount(amountField.value);
-  if (!amount) {
+  const amountValues = resolveMemberFieldValues(amountField, groupMemberFields);
+  const amount = amountValues && sumEuroAmounts(amountValues);
+  if (!amount || amount < 0) {
     return {
       type: "error",
       message:

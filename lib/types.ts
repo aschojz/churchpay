@@ -42,8 +42,13 @@ export interface Member {
 export interface MemberField {
   id: number;
   name: string;
-  value: string;
+  value: string | string[] | null;
   sortKey: number;
+}
+
+export interface GroupMemberFieldOption {
+  id: string;
+  name: string;
 }
 
 export interface GroupMemberField {
@@ -60,7 +65,7 @@ export interface GroupMemberField {
     securityLevel: number;
     defaultValue: string;
     maxLength: number;
-    options: never[];
+    options: GroupMemberFieldOption[];
     useInRegistrationForm: boolean;
     requiredInRegistrationForm: boolean;
   };

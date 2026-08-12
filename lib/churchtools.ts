@@ -2,7 +2,7 @@ import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
 import { ChurchToolsClient } from "@churchtools/churchtools-client";
 import { getEnvForDomain } from "@/lib/domainenv";
-import { GroupMemberField, Member } from "@/lib/types";
+import { GroupMemberField, MemberField, Member } from "@/lib/types";
 
 export function getChurchToolsClient(domain: string) {
   const token = getEnvForDomain("CT_TOKEN", decodeURIComponent(domain));
@@ -36,14 +36,14 @@ export function getPaidField(member: Member) {
 }
 
 export function extractEuroAmount(input: string): number | null {
-  const match = /(\d+\s?€)/g.exec(input.replace(",", "."));
+  const normalized = input.replace(",", ".");
+  const match = /(\d+(?:\.\d+)?)\s?€/.exec(normalized);
 
   if (match && match[1]) {
-    const amount = parseFloat(match[1].replace("€", "").replace(" ", ""));
-    return amount;
+    return parseFloat(match[1]);
   }
 
-  const amount = parseFloat(input.replace(",", "."));
+  const amount = parseFloat(normalized);
   if (!isNaN(amount)) {
     return amount;
   }
@@ -57,6 +57,55 @@ export function getAmountField(member: Member) {
       field.name.toLowerCase(),
     ),
   );
+}
+
+/**
+ * Auswahlfelder liefern in /members nicht das Label, sondern die Options-ID
+ * (z.B. "20169" für die Option "69"). Das Label steht nur in /memberfields.
+ * Gibt null zurück, wenn eine Options-ID nicht aufgelöst werden kann – dann
+ * lieber gar keinen Betrag als einen falschen.
+ */
+export function resolveMemberFieldValues(
+  memberField: MemberField,
+  groupMemberFields: GroupMemberField[],
+): string[] | null {
+  const options =
+    groupMemberFields.find(
+      (groupMemberField) =>
+        groupMemberField.type === "group" &&
+        groupMemberField.field?.id === memberField.id,
+    )?.field?.options ?? [];
+
+  const value = memberField.value;
+  if (value === null || value === undefined) {
+    return [];
+  }
+
+  if (options.length === 0) {
+    return Array.isArray(value) ? value : [value];
+  }
+
+  const optionIds = Array.isArray(value) ? value : String(value).split(",");
+  const labels = optionIds
+    .map((optionId) => String(optionId).trim())
+    .filter((optionId) => optionId !== "")
+    .map(
+      (optionId) =>
+        options.find((option) => String(option.id) === optionId)?.name,
+    );
+
+  if (labels.some((label) => label === undefined)) {
+    return null;
+  }
+  return labels as string[];
+}
+
+export function sumEuroAmounts(values: string[]): number | null {
+  const amounts = values.map(extractEuroAmount);
+  if (amounts.length === 0 || amounts.some((amount) => amount === null)) {
+    return null;
+  }
+  return amounts.reduce((sum: number, amount) => sum + amount!, 0);
 }
 
 export async function getGroupMemberFields(
