@@ -57,7 +57,7 @@ export default function PayPage() {
     return (
       <main className="flex flex-col items-center px-4 py-24">
         <h1 className="text-xl font-bold">Bezahlen für {groupName}</h1>
-        <div className="mb-8 mt-2 font-bold">{amount} €</div>
+        <div className="mt-2 mb-8 font-bold">{amount} €</div>
         <PayPalScriptProvider
           options={{
             clientId,
@@ -84,6 +84,7 @@ export default function PayPage() {
                 return orderId;
               } catch (err) {
                 setError((err as Error).message);
+                throw err;
               }
             }}
             onApprove={async (data) => {

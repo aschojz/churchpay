@@ -1,5 +1,5 @@
 import checkoutNodeJssdk from "@paypal/checkout-server-sdk";
-import { getEnvForDomain } from "./domainenv";
+import { getEnvForDomain } from "../domainenv";
 
 export function getPayPalClient(
   domain: string,

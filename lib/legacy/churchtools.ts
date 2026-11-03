@@ -2,7 +2,7 @@ import { wrapper } from "axios-cookiejar-support";
 import { CookieJar } from "tough-cookie";
 import { ChurchToolsClient } from "@churchtools/churchtools-client";
 import { getEnvForDomain } from "@/lib/domainenv";
-import { GroupMemberField, MemberField, Member } from "@/lib/types";
+import { GroupMemberField, MemberField, Member } from "./types";
 
 export function getChurchToolsClient(domain: string) {
   const token = getEnvForDomain("CT_TOKEN", decodeURIComponent(domain));

@@ -2,8 +2,8 @@
 
 import { orders } from "@paypal/checkout-server-sdk";
 import { getEnvForDomain } from "@/lib/domainenv";
-import { getPayPalClient } from "@/lib/paypal";
-import { PaymentInfo } from "@/lib/types";
+import { getPayPalClient } from "@/lib/legacy/paypal";
+import { PaymentInfo } from "@/lib/legacy/types";
 import {
   getAmountField,
   getChurchToolsClient,
@@ -13,7 +13,7 @@ import {
   resolveMemberFieldValues,
   setPaid,
   sumEuroAmounts,
-} from "./churchtools";
+} from "./legacy/churchtools";
 
 export async function getPaymentInfo(
   domain: string,
@@ -123,6 +123,7 @@ export async function createPayPalPayment(
     );
     throw new Error(
       "Ein Fehler ist aufgetreten. Bitte versuche es später erneut.",
+      { cause: err },
     );
   }
 }
@@ -158,6 +159,7 @@ export async function capturePayPalPayment(
     );
     throw new Error(
       "Ein Fehler ist aufgetreten. Bitte versuche es später erneut.",
+      { cause: err },
     );
   }
 }

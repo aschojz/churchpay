@@ -1,5 +1,5 @@
 import paypal from "@paypal/checkout-server-sdk";
-import { getPayPalClient } from "./lib/paypal";
+import { getPayPalClient } from "./lib/legacy/paypal";
 import * as dotenv from "dotenv";
 
 async function main() {
@@ -16,12 +16,13 @@ async function main() {
     const request = new paypal.orders.OrdersGetRequest("ORDER_ID");
     const response = await client!.execute(request);
     console.log("PayPal client is valid:", response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // RESOURCE_NOT_FOUND is intentional since ORDER_ID is invalid
-    if (error.message.includes("RESOURCE_NOT_FOUND")) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("RESOURCE_NOT_FOUND")) {
       console.log("PayPal client is valid.");
     } else {
-      console.error("Error validating PayPal client:", error.message);
+      console.error("Error validating PayPal client:", message);
     }
   }
 }

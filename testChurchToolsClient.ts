@@ -1,4 +1,4 @@
-import { getChurchToolsClient } from "./lib/churchtools";
+import { getChurchToolsClient } from "./lib/legacy/churchtools";
 import * as dotenv from "dotenv";
 
 async function main() {
