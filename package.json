@@ -17,6 +17,7 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "payment-link": "tsx scripts/payment-link.ts",
+    "reconcile": "tsx scripts/reconcile.ts",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "test-churchtools-client": "tsx testChurchToolsClient.ts",
