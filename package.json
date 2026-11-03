@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "test-churchtools-client": "tsx testChurchToolsClient.ts",
-    "test-paypal-client": "tsx testPayPalClient.ts"
+    "test-paypal-client": "tsx testPayPalClient.ts",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@churchtools/churchtools-client": "^1.7.3",
