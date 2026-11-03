@@ -14,13 +14,13 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "payment-link": "tsx scripts/payment-link.ts",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "test-churchtools-client": "tsx testChurchToolsClient.ts",
-    "test-paypal-client": "tsx testPayPalClient.ts",
-    "test": "node --import tsx --test tests/*.test.ts",
-    "payment-link": "tsx scripts/payment-link.ts",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "test-paypal-client": "tsx testPayPalClient.ts"
   },
   "dependencies": {
     "@churchtools/churchtools-client": "^1.7.3",
@@ -34,8 +34,7 @@
     "react-dom": "^19.3.1",
     "tough-cookie": "^6.0.2",
     "tsx": "^4.23.15",
-    "zod": "^4",
-    "@paypal/checkout-server-sdk": "1.0.3"
+    "zod": "^4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -54,7 +53,6 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.4",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.72.1",
-    "@types/paypal__checkout-server-sdk": "1.0.8"
+    "typescript-eslint": "^8.72.1"
   }
 }
