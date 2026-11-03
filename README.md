@@ -1,0 +1,95 @@
+# ChurchPay
+
+ChurchPay accepts PayPal payments for ChurchTools group registrations. It reads a member's price from ChurchTools, creates a PayPal order, and updates the group's payment checkbox only after verifying the completed capture.
+
+Payments are recorded in PostgreSQL before external side effects. A registration has one payment record and one PayPal order. Repeated requests reuse that record, and a scheduled reconciliation job repairs interrupted captures and ChurchTools updates.
+
+## Requirements and setup
+
+- Node.js 24 LTS and npm.
+- PostgreSQL 14 or newer, shared by every app instance. Use a direct connection or a **session** pooler. Transaction pooling is incompatible with the session advisory locks used to serialize a registration's payment.
+- A dedicated ChurchTools API user with access to the relevant group membership, member fields, and permission to update its payment field.
+- PayPal REST application credentials, merchant ID and a webhook registration for each tenant. Sandbox and live credentials, merchant IDs and webhook IDs are separate.
+
+```sh
+nvm use
+npm ci
+cp .env.example .env
+# Fill in .env before starting the app.
+npm run db:migrate
+npm run dev
+```
+
+For production, run `npm run build` and `npm start`, with the same environment variables supplied by your hosting platform. Configuration is validated when the Node.js server starts. Schema migration is an explicit deployment step, not a side effect of processing a payment. Back up the database and use TLS for remote database connections with certificate verification enabled.
+
+`CHURCHPAY_DOMAINS` is the explicit list of supported ChurchTools subdomains. For `example-1.church.tools`, use `example-1` and the environment suffix `EXAMPLE_1`. Dots, slashes, percent escapes, underscores and URL fragments are rejected. Credentials are never selected from arbitrary hostnames. `PAYPAL_ENV_<TENANT>` must explicitly be `sandbox` or `live`; `NODE_ENV` does not choose the payment environment.
+
+Generate independent secrets with `openssl rand -hex 32`. Keep `.env` files, database credentials, webhook IDs and signing secrets out of source control. The public PayPal client ID is sent to the browser; the client secret and ChurchTools token stay on the server.
+
+## ChurchTools fields and prices
+
+The group needs exactly one checkbox named `Bezahlt` or `Paid`, and exactly one group field named `Betrag`, `Preis`, `Buchung` or `Auswahl` (case insensitive). Ambiguous or inaccessible fields stop payment before capture. Only active memberships can pay.
+
+Prices support numbers such as `69`, `69,50`, `69.50`, `1.234,56 €`, and labels such as `Teilnahme 69 €`. Selection values are resolved against the group's option metadata before calculating a price. Missing choices, duplicate choices, negative amounts, non-finite numbers, exponent notation, sub-cent amounts, zero totals and totals above EUR 999,999.99 are rejected. Calculations and stored amounts use integer cents. A price or payment-field change after order creation requires operator review instead of silently charging a different amount.
+
+## Signed payment links
+
+Unsigned URLs containing only tenant, group ID and person ID are no longer accepted. Generate a link on a trusted server:
+
+```sh
+npm run payment-link -- https://churchpay.example example-1 123 456 7
+```
+
+This prints a link valid for seven days (maximum 30). Integrate the same `signPaymentLink` helper into the trusted registration or email workflow and include the generated link in the confirmation email. Signing secrets must never be embedded in ChurchTools mail templates, client JavaScript or public endpoints. The link grants access to that registration, so treat it as a credential. The public response contains the group title and price, not the participant's name.
+
+Existing confirmation-email templates that construct unsigned URLs from IDs **must be updated before deployment**. Existing unsigned links need replacement links. Rotating a tenant's signing secret invalidates its outstanding links; it does not remove stored payment records.
+
+## Payment verification and recovery
+
+Before capture, ChurchPay checks the stored order ID, registration UUID, invoice ID, merchant ID, amount, currency and intent against PayPal's order. It checks the current ChurchTools price and unpaid state again. Only a full capture with status `COMPLETED` sets the checkbox. `PENDING` remains pending. Capture intent is persisted before the API call and the create/capture requests use stable PayPal idempotency keys.
+
+A successful capture is persisted before updating ChurchTools. If that update fails, the user sees that payment was confirmed and synchronization is pending. Reconciliation retries the ChurchTools update without charging again. An ambiguous create request older than five hours is held for review rather than retried beyond PayPal's minimum six-hour idempotency window.
+
+Register `https://churchpay.example/api/paypal/example-1` as the tenant's webhook endpoint and set its webhook ID in the environment. Subscribe to `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.PENDING`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED` and `PAYMENT.CAPTURE.REVERSED`. Webhook signatures are verified through PayPal's verification API and trigger a fresh authoritative order/capture lookup. A verified reversal notification is recorded only after matching its capture ID to the verified order. Reversed and refunded records never return to paid based on stale capture details.
+
+Run reconciliation every minute, including when webhooks are enabled:
+
+```sh
+npm run reconcile
+```
+
+Alternatively schedule authenticated `GET /api/reconcile` with `Authorization: Bearer <CRON_SECRET>`. The endpoint processes up to 100 records per run and returns `503` for synchronization failures or payments requiring review. The CLI returns a nonzero exit code for the same conditions. Unsettled records are eligible every minute; synchronized completed/refunded/reversed records are checked every six hours as a fallback for missing notifications. Increase scheduling frequency/capacity if 100 records per run cannot meet your reconciliation latency. Give HTTP jobs enough runtime for sequential provider calls; a persistent CLI worker is suitable for larger installations.
+
+Monitor the job result and structured events `payment_requires_review`, `churchtools_sync_failed` and `payment_reconcile_failed`. Logs contain internal payment UUIDs and event names, not credentials or full provider error bodies. Restrict operational access to the database: tenant, group/person IDs and payment references are personal data. Establish an appropriate backup and retention policy.
+
+Full refunds and reversals clear the ChurchTools checkbox. Partial refunds and unexpected capture states require manual review and do not guess a replacement checkbox state. Refunded, reversed and review records do not start another payment. Voided or expired orders also require operator review; this version deliberately does not automatically replace an order that could still represent an outstanding payment. Before resolving a review record, verify its PayPal transaction history and ChurchTools membership. Preserve the original record for reconciliation and accounting; do not delete it to bypass duplicate-payment protection.
+
+Rate limits are persisted in PostgreSQL and shared across app instances. Apply ingress request limits at the hosting platform as well. Do not log full payment URLs or query strings: they contain bearer link signatures. The application sends a restrictive referrer policy and excludes payment pages from indexing.
+
+## Upgrading from 0.3
+
+1. Set up PostgreSQL, configure the tenant allowlist and all required per-tenant settings, and run the migration.
+2. Configure the correct sandbox or live environment explicitly. The old `USE_SANDBOX` variable is no longer used. Numeric tenant suffixes now preserve digits.
+3. Update confirmation emails to carry signed links. Confirm that the ChurchTools version supports `GET /groups/{groupId}/members/{personId}`.
+4. Set up verified PayPal webhooks and scheduled reconciliation. Exercise the full flow in the sandbox before switching live credentials.
+5. Reconcile any outstanding orders from the previous deployment manually. They have no record in the new payment ledger and are intentionally not accepted as new-format payments.
+
+## Development and checks
+
+```sh
+npm run format:check
+npm run lint
+npm test
+npm run build
+npm run typecheck
+npm audit --omit=dev
+```
+
+Set `TEST_DATABASE_URL` to a disposable PostgreSQL database to run the persistence and concurrent-worker integration test; otherwise that test is skipped. CI starts a PostgreSQL service and runs it automatically. Unit tests cover signed links, tenant validation, malformed amounts, choice resolution, order binding, duplicate capture, pending payments, lost responses, synchronization retries, refunds and reversals. The connection smoke scripts are read-only, honor the configured PayPal environment, and return nonzero on failure:
+
+```sh
+npm run test-churchtools-client -- example-1
+npm run test-paypal-client -- example-1
+```
+
+The app uses Next.js 16, React 19, Tailwind 4 and the supported PayPal Server SDK. ESLint 10 is configured with the Next.js and React Hooks plugins directly; the older React lint plugin required by `eslint-config-next` does not yet declare ESLint 10 support. TypeScript stays on 6.0 because `typescript-eslint` does not yet support the TypeScript 7 compiler API. A minimatch override selects the patched 11.x release while linter packages still request affected older majors; lint, TypeScript, tests and build are checked with that override. System fonts keep builds independent of Google Fonts availability.
