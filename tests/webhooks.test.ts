@@ -11,7 +11,6 @@ const tenant: Tenant = {
   clientSecret: "dummy",
   merchantId: "MERCHANT",
   environment: "sandbox",
-  linkSecret: "dummy".repeat(8),
   webhookId: "WEBHOOK",
 };
 const headers = new Headers({

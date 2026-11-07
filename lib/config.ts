@@ -43,7 +43,6 @@ export function getTenant(domain: string) {
     clientSecret: required.parse(value("PAYPAL_CLIENT_SECRET")),
     merchantId: required.parse(value("PAYPAL_MERCHANT_ID")),
     environment: z.enum(["sandbox", "live"]).parse(value("PAYPAL_ENV")),
-    linkSecret: z.string().min(32).parse(value("PAYMENT_LINK_SECRET")),
     webhookId: required.parse(value("PAYPAL_WEBHOOK_ID")),
   };
 }

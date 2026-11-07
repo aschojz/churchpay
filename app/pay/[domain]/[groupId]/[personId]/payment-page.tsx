@@ -11,7 +11,7 @@ import {
   createPayPalPayment,
   getPaymentInfo,
 } from "@/lib/actions";
-import type { PaymentAccess } from "@/lib/payment-link";
+import type { PaymentReference } from "@/lib/config";
 import type { PaymentInfo, PaymentResult } from "@/lib/types";
 
 const unavailable = {
@@ -24,7 +24,7 @@ function Checkout({
   access,
   update,
 }: {
-  access: PaymentAccess;
+  access: PaymentReference;
   update(info: PaymentInfo): void;
 }) {
   const [{ isRejected }] = usePayPalScriptReducer();
@@ -118,7 +118,7 @@ function Status({ result }: { result: PaymentResult }) {
   );
 }
 
-export function PaymentPage({ access }: { access: PaymentAccess }) {
+export function PaymentPage({ access }: { access: PaymentReference }) {
   const [info, setInfo] = useState<PaymentInfo | null>(null);
   useEffect(() => {
     let active = true;

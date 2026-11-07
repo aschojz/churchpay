@@ -1,4 +1,4 @@
-import { accessSchema } from "@/lib/payment-link";
+import { referenceSchema } from "@/lib/config";
 import { PaymentPage } from "./payment-page";
 
 export const runtime = "nodejs";
@@ -6,17 +6,10 @@ export const maxDuration = 120;
 
 export default async function Page({
   params,
-  searchParams,
 }: {
   params: Promise<{ domain: string; groupId: string; personId: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const query = await searchParams;
-  const access = accessSchema.safeParse({
-    ...(await params),
-    expires: query.expires,
-    signature: query.signature,
-  });
+  const access = referenceSchema.safeParse(await params);
   if (!access.success)
     return (
       <main className="mx-auto max-w-xl px-4 py-24">

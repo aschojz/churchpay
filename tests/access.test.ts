@@ -1,27 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { domainSchema, getTenant, idSchema } from "../lib/config";
-import { signPaymentLink, verifyPaymentLink } from "../lib/payment-link";
+import {
+  domainSchema,
+  getTenant,
+  idSchema,
+  referenceSchema,
+} from "../lib/config";
 
 const reference = { domain: "demo-1", groupId: "10", personId: "20" };
-const secret = "test-secret-with-at-least-32-characters";
-const now = 1900000000000;
-test("signed links bind tenant, group, person, expiry and secret", () => {
-  const access = signPaymentLink(reference, now / 1000 + 3600, secret);
-  assert.deepEqual(verifyPaymentLink(access, secret, now), access);
-  for (const patch of [
-    { domain: "demo-2" },
-    { groupId: "11" },
-    { personId: "21" },
-    { expires: String(now / 1000 + 7200) },
-    { signature: "0".repeat(64) },
-  ])
-    assert.throws(() =>
-      verifyPaymentLink({ ...access, ...patch }, secret, now),
-    );
-  assert.throws(() => verifyPaymentLink(access, "another-secret", now));
-  assert.throws(() => verifyPaymentLink(access, secret, now + 3600000));
-  assert.throws(() => verifyPaymentLink(reference, secret, now));
+test("ChurchTools template links need only tenant, group and person IDs", () => {
+  const url = new URL("https://churchpay.example/pay/demo-1/10/20");
+  const [, , domain, groupId, personId] = url.pathname.split("/");
+  assert.deepEqual(
+    referenceSchema.parse({ domain, groupId, personId }),
+    reference,
+  );
 });
 test("reject URL, domain and path injection and non-canonical IDs", () => {
   for (const value of [
@@ -62,7 +55,7 @@ test("tenant allowlist and credential suffixes preserve digits", () => {
       ])
         process.env[`${key}_${suffix}`] = `${key}-${suffix}`;
       process.env[`PAYPAL_ENV_${suffix}`] = "sandbox";
-      process.env[`PAYMENT_LINK_SECRET_${suffix}`] = secret;
+      delete process.env[`PAYMENT_LINK_SECRET_${suffix}`];
     }
     assert.notEqual(
       getTenant("demo-1").churchToolsToken,
